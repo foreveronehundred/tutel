@@ -139,7 +139,11 @@ static void invoke(const std::vector<torch::Tensor> &ts, int code_id) {
     CHECK_CUDA(ts[i]);
     pargs[i] = (void*)ts[i].data_ptr(), ppargs[i] = &pargs[i];
   }
-  CHECK_EQ(0, cuLaunchKernel(gm.hFunc, gm.blocks.x, gm.blocks.y, gm.blocks.z, gm.threads.x, gm.threads.y, gm.threads.z, 0, nullptr, ppargs.data(), nullptr));
+  int cuLaunchKernel_value;
+  cuLaunchKernel_value = cuLaunchKernel(gm.hFunc, gm.blocks.x, gm.blocks.y, gm.blocks.z, gm.threads.x, gm.threads.y, gm.threads.z, 0, nullptr, ppargs.data(), nullptr);
+  if (cuLaunchKernel_value != 0)
+    printf("cuLaunchKernel_value = %d\n", cuLaunchKernel_value);
+  CHECK_EQ(0, cuLaunchKernel_value);
 }
 
 static void invoke_with_source(const std::vector<torch::Tensor> &ts, int code_id, int flags, const std::string &code) {
@@ -195,8 +199,8 @@ static void invoke_with_source(const std::vector<torch::Tensor> &ts, int code_id
     std::string image;
     if (!use_nvrtc || (image = nvrtc_compile(source, arch)) == "") {
         int dev_ord = dev;
-        const char *local_rank = getenv("LOCAL_RANK");
-        dev_ord = local_rank ? std::atoi(local_rank) : dev_ord;
+        if (getenv("TUTEL_CUDA_SANDBOX") != nullptr)
+          dev_ord = std::atoi(getenv("CUDA_VISIBLE_DEVICES"));
         image = nvcc_compile(source, arch, code_id, dev_ord);
     }
 
